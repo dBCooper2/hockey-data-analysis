@@ -1,0 +1,101 @@
+---
+title: "Building a Win Probability Model with R and hockeyR"
+output: html_notebook
+---
+
+# Building a Win Probability Model with R and hockeyR
+
+By :: Trevor Rowland
+
+Based on [anpatton](<https://github.com/anpatton>)'s 
+guide on [How to Make a Win Probability Model](<https://github.com/anpatton/basic-nba-tutorials/blob/main/win_probability/make_win_probability_model.md>) 
+and using the [hockeyR](<https://github.com/danmorse314/hockeyR>) package.
+
+## Step 1: Installing Packages
+
+We will be using the tidyverse, arrow and knitr packages 
+along with the sportyR and hockeyR packages for the 
+necessary hockey data.
+
+```{r}
+# Install R Packages
+install.packages("tidyverse")
+install.packages("arrow")
+install.packages("knitr")
+install.packages("sportyR")
+```
+
+```{r}
+# Install hockeyR from github
+install.packages("devtools")
+library("devtools")
+devtools::install_github("danmorse314/hockeyR")
+```
+
+```{r}
+# load the libraries
+library("tidyverse")
+library("arrow")
+library("knitr")
+library("hockeyR")
+library("sportyR")
+```
+
+## Step 2: Generate the Dataset
+
+### 2.a. Access the Dataset
+
+By calling the `load_pbp(season)` method, we can 
+access play-by-play data for 
+
+```{r}
+# Load Play-by-Play data into a DF
+pbp_hist <- load_pbp(season = 2023)
+pbp_curr <- load_pbp('2024-25')
+
+write.csv(pbp_hist, "/Users/dB/Desktop/fall_24/DS-4210/final-proj/pbp_hist_data_2011-2023.csv", row.names=FALSE)
+write.csv(pbp_curr, "/Users/dB/Desktop/fall_24/DS-4210/final-proj/pbp_curr_data.csv", row.names=FALSE)
+```
+
+The play-by-play data loaded season data from 
+2011 to 2023, but was unable to pull any data 
+from the most recent season. This will be resolved, 
+but for now let's create the model.
+
+### 2.b. Examine the Dataset
+
+First we need to examine the dataset and change 
+column names/clean the data when necessary.
+
+```{r}
+# Check Column Names
+colnames(pbp_hist)
+head(pbp_hist)
+
+# Get all unique games
+games <- unique(pbp_hist$event_id)
+```
+
+### 2.c. Testing Sample Functions
+
+The `hockeyR` git repo provides us with some 
+functions to try. Here is one that finds player 
+goals above expectation:
+
+```{r}
+pbp_hist %>%
+  filter(event_type %in% c("SHOT","MISSED_SHOT","GOAL")) %>%
+  filter(season_type == "R" & period_type != "SHOOTOUT") %>%
+  group_by(player = event_player_1_name, id = event_player_1_id, season) %>%
+  summarize(
+    team = last(event_team_abbr),
+    goals = sum(event_type == "GOAL"),
+    xg = round(sum(xg, na.rm = TRUE),1),
+    gax = goals - xg,
+    .groups = "drop"
+  ) %>%
+  arrange(-xg) %>%
+  slice(1:10)
+```
+
+## Step 3: 
